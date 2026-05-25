@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4399 游戏排行榜 - 数据爬虫</title>
+    
+    <!-- Google Fonts 中文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Chart.js 图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        /* ========================================
+           CSS 变量定义 - 主题色管理
+           ======================================== */
+        :root {
+            /* 4399 品牌色 - 橙黄色系 */
+            --primary-color: #FF9500;
+            --primary-dark: #E68600;
+            --primary-light: #FFB340;
+            --secondary-color: #FFC107;
+            
+            /* 深色科技风背景 */
+            --bg-dark: #0D1117;
+            --bg-card: #161B22;
+            --bg-card-hover: #21262D;
+            --bg-input: #0D1117;
+            --border-color: #30363D;
+            
+            /* 文字颜色 */
+            --text-primary: #F0F6FC;
+            --text-secondary: #8B949E;
+            --text-muted: #6E7681;
+            
+            /* 状态颜色 */
+            --success-color: #3FB950;
+            --warning-color: #D29922;
+            --error-color: #F85149;
+            --info-color: #58A6FF;
+            
+            /* 渐变色 */
+            --gradient-primary: linear-gradient(135deg, #FF9500 0%, #FFC107 100%);
+            --gradient-dark: linear-gradient(180deg, #0D1117 0%, #161B22 100%);
+            --gradient-card: linear-gradient(145deg, #1C2128 0%, #0D1117 100%);
+            
+            /* 阴影 */
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+            --shadow-glow: 0 0 20px rgba(255, 149, 0, 0.3);
+            
+            /* 圆角 */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            
+            /* 过渡动画 */
+            --transition-fast: 0.15s ease;
+            --transition-normal: 0.3s ease;
+        }
+
+        /* ========================================
+           全局样式重置
+           ======================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ========================================
+           粒子背景动效
+           ======================================== */
+        #particles-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .particle {
+            position: absolute;
+            background: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translateY(0) translateX(0);
+                opacity: 0.3;
+            }
+            25% {
+                transform: translateY(-100px) translateX(50px);
+                opacity: 0.5;
+            }
+            50% {
+                transform: translateY(-200px) translateX(-30px);
+                opacity: 0.3;
+            }
+            75% {
+                transform: translateY(-100px) translateX(-50px);
+                opacity: 0.5;
+            }
+        }
+
+        /* ========================================
+           主容器布局
+           ======================================== */
+        .main-container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ========================================
+           头部标题区域
+           ======================================== */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .header-logo i {
+            font-size: 48px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(255, 149, 0, 0.3);
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+
+        .header .data-source {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .header .data-source a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .header .data-source a:hover {
+            text-decoration: underline;
+        }
+
+        /* ========================================
+           状态栏
+           ======================================== */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            margin-bottom: 25px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .status-item i {
+            color: var(--primary-color);
+        }
+
+        .status-item .value {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .status-item.online {
+            color: var(--success-color);
+        }
+
+        .status-item.online i {
+            color: var(--success-color);
+        }
+
+        /* ========================================
+           控制按钮组
+           ======================================== */
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            color: #000;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 30px rgba(255, 149, 0, 0.5);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--primary-color);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ========================================
+           标签页切换
+           ======================================== */
+        .tabs-container {
+            margin-bottom: 25px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 5px;
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+        }
+
+        .tab {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-card-hover);
+        }
+
+        .tab.active {
+            background: var(--gradient-primary);
+            color: #000;
+        }
+
+        .tab .count {
+            padding: 2px 8px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+
+        .tab.active .count {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        /* ========================================
+           筛选和搜索区域
+           ======================================== */
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 45px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            transition: all var(--transition-normal);
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(255, 149, 0, 0.1);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .filter-dropdown {
+            position: relative;
+        }
+
+        .filter-dropdown select {
+            appearance: none;
+            padding: 12px 40px 12px 16px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            min-width: 150px;
+        }
+
+        .filter-dropdown select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .filter-dropdown::after {
+            content: '\f078';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            pointer-events: none;
+            font-size: 0.8rem;
+        }
+
+        /* ========================================
+           数据展示卡片
+           ======================================== */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 25px;
+        }
+
+        @media (max-width: 1100px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            transition: all var(--transition-normal);
+        }
+
+        .card:hover {
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--gradient-card);
+        }
+
+        .card-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .card-header h3 i {
+            color: var(--primary-color);
+        }
+
+        .card-body {
+            padding: 0;
+        }
+
+        /* ========================================
+           游戏列表表格
+           ======================================== */
+        .game-table-wrapper {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .game-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        .game-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .game-table th {
+            padding: 14px 16px;
+            background: var(--bg-card-hover);
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-align: left;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .game-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: middle;
+        }
+
+        .game-table tbody tr {
+            transition: background var(--transition-fast);
+        }
+
+        .game-table tbody tr:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .game-rank {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: var(--bg-card-hover);
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .game-rank.top-3 {
+            background: var(--gradient-primary);
+            color: #000;
+        }
+
+        .game-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .game-thumb {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius-sm);
+            object-fit: cover;
+            background: var(--bg-card-hover);
+        }
+
+        .game-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .game-name a {
+            color: inherit;
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        .game-name a:hover {
+            color: var(--primary-color);
+        }
+
+        .game-category {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--bg-card-hover);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .game-hot {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+
+        .game-hot i {
+            font-size: 0.85rem;
+        }
+
+        .game-date {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .no-data i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        /* ========================================
+           图表区域
+           ======================================== */
+        .chart-card {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container {
+            padding: 20px;
+            height: 280px;
+            position: relative;
+        }
+
+        .chart-container canvas {
+            max-height: 100%;
+        }
+
+        /* ========================================
+           加载动画 - 骨架屏
+           ======================================== */
+        .skeleton {
+            background: linear-gradient(90deg, var(--bg-card-hover) 25%, var(--bg-card) 50%, var(--bg-card-hover) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .skeleton-row {
+            display: flex;
+            align-items: center;
+            padding: 15px 16px;
+            gap: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .skeleton-rank {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-thumb {
+            width: 50px;
+            height: 50px;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-text {
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .skeleton-text.short {
+            width: 100px;
+        }
+
+        .skeleton-text.medium {
+            width: 150px;
+        }
+
+        /* ========================================
+           错误提示
+           ======================================== */
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 20px;
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid var(--error-color);
+            border-radius: var(--radius-md);
+            margin: 15px 20px;
+            color: var(--error-color);
+        }
+
+        .error-message i {
+            font-size: 1.2rem;
+        }
+
+        /* ========================================
+           统计卡片
+           ======================================== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all var(--transition-normal);
+        }
+
+        .stat-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-primary);
+            border-radius: var(--radius-md);
+            font-size: 1.5rem;
+            color: #000;
+        }
+
+        .stat-content h4 {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+            margin-bottom: 5px;
+        }
+
+        .stat-content .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* ========================================
+           提示框
+           ======================================== */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all var(--transition-normal);
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            border-color: var(--success-color);
+        }
+
+        .toast.success i {
+            color: var(--success-color);
+        }
+
+        .toast.error {
+            border-color: var(--error-color);
+        }
+
+        .toast.error i {
+            color: var(--error-color);
+        }
+
+        /* ========================================
+           响应式设计
+           ======================================== */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .control-buttons {
+                width: 100%;
+            }
+
+            .btn {
+                flex: 1;
+                justify-content: center;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                min-width: 100%;
+            }
+
+            .filter-section {
+                flex-direction: column;
+            }
+
+            .filter-dropdown {
+                width: 100%;
+            }
+
+            .filter-dropdown select {
+                width: 100%;
+            }
+
+            .game-table th:nth-child(4),
+            .game-table td:nth-child(4) {
+                display: none;
+            }
+        }
+
+        /* ========================================
+           滚动条美化
+           ======================================== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-color);
+        }
+
+        /* ========================================
+           页脚
+           ======================================== */
+        .footer {
+            text-align: center;
+            padding: 30px 20px;
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <!-- 粒子背景容器 -->
+    <div id="particles-container"></div>
+
+    <div class="main-container">
+        <!-- 头部区域 -->
+        <header class="header">
+            <div class="header-logo">
+                <i class="fas fa-gamepad"></i>
+                <h1>4399 游戏排行榜</h1>
+            </div>
+            <p>实时爬取 4399 小游戏热门榜单数据，支持多维度分析与可视化</p>
+            <div class="data-source">
+                <i class="fas fa-link"></i>
+                数据来源：<a href="https://www.4399.com/flash/" target="_blank">https://www.4399.com/flash/</a>
+            </div>
+        </header>
+
+        <!-- 状态栏 -->
+        <div class="status-bar">
+            <div class="status-item" id="connectionStatus">
+                <i class="fas fa-circle"></i>
+                <span>连接状态：</span>
+                <span class="value">检测中...</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-clock"></i>
+                <span>最后更新：</span>
+                <span class="value" id="lastUpdate">--</span>
+            </div>
+            <div class="status-item">
+                <i class="fas fa-database"></i>
+                <span>当前数据：</span>
+                <span class="value" id="dataCount">0 条</span>
+            </div>
+            <div class="control-buttons">
+                <button class="btn btn-primary" id="refreshBtn" onclick="app.refreshData()">
+                    <i class="fas fa-sync-alt"></i>
+                    刷新数据
+                </button>
+                <button class="btn btn-secondary" onclick="app.exportCSV()">
+                    <i class="fas fa-download"></i>
+                    导出 CSV
+                </button>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-fire"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>最热游戏</h4>
+                    <div class="value" id="topGame">--</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>游戏分类</h4>
+                    <div class="value" id="categoryCount">0</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <div class="stat-content">
+                    <h4>TOP 3 分类</h4>
+                    <div class="value" id="topCategory">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 标签页 -->
+        <div class="tabs-container">
+            <div class="tabs" id="tabsContainer">
+                <button class="tab active" data-tab="hot" onclick="app.switchTab('hot')">
+                    <i class="fas fa-fire"></i>
+                    热门游戏
+                </button>
+                <button class="tab" data-tab="action" onclick="app.switchTab('action')">
+                    <i class="fas fa-fist-raised"></i>
+                    动作类
+                </button>
+                <button class="tab" data-tab="puzzle" onclick="app.switchTab('puzzle')">
+                    <i class="fas fa-puzzle-piece"></i>
+                    益智类
+                </button>
+                <button class="tab" data-tab="shooting" onclick="app.switchTab('shooting')">
+                    <i class="fas fa-bullseye"></i>
+                    射击类
+                </button>
+                <button class="tab" data-tab="sports" onclick="app.switchTab('sports')">
+                    <i class="fas fa-futbol"></i>
+                    体育类
+                </button>
+                <button class="tab" data-tab="adventure" onclick="app.switchTab('adventure')">
+                    <i class="fas fa-compass"></i>
+                    冒险类
+                </button>
+            </div>
+        </div>
+
+        <!-- 筛选区域 -->
+        <div class="filter-section">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="搜索游戏名称..." oninput="app.filterGames()">
+            </div>
+            <div class="filter-dropdown">
+                <select id="categoryFilter" onchange="app.filterGames()">
+                    <option value="">全部分类</option>
+                    <option value="益智类">益智类</option>
+                    <option value="敏捷篇">敏捷篇</option>
+                    <option value="休闲类">休闲类</option>
+                    <option value="射击类">射击类</option>
+                    <option value="策略类">策略类</option>
+                    <option value="装扮类">装扮类</option>
+                    <option value="冒险类">冒险类</option>
+                    <option value="体育类">体育类</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
+        <div class="content-grid">
+            <!-- 游戏列表卡片 -->
+            <div class="card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-list"></i>
+                        <span id="currentTabTitle">热门游戏</span>
+                    </h3>
+                    <span id="tableInfo" style="color: var(--text-secondary); font-size: 0.85rem;">
+                        共 <span id="filteredCount">0</span> 条
+                    </span>
+                </div>
+                <div class="card-body" id="gameListContainer">
+                    <!-- 骨架屏加载状态 -->
+                    <div id="loadingState">
+                        <div class="skeleton-row">
+                            <div class="skeleton skeleton-rank"></div>
+                            <div class="skeleton skeleton-thumb"></div>
+                            <div>
+                                <div class="skeleton skeleton-text medium"></div>
+                                <div class="skeleton skeleton-text short" style="margin-top: 6px;"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-row">
+                            <div class="skeleton skeleton-rank"></div>
+                            <div class="skeleton skeleton-thumb"></div>
+                            <div>
+                                <div class="skeleton skeleton-text medium"></div>
+                                <div class="skeleton skeleton-text short" style="margin-top: 6px;"></div>
+                            </div>
+                        </div>
+                        <div class="skeleton-row">
+                            <div class="skeleton skeleton-rank"></div>
+                            <div class="skeleton skeleton-thumb"></div>
+                            <div>
+                                <div class="skeleton skeleton-text medium"></div>
+                                <div class="skeleton skeleton-text short" style="margin-top: 6px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 游戏列表 -->
+                    <div class="game-table-wrapper" id="gameTableWrapper" style="display: none;">
+                        <table class="game-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 60px;">排名</th>
+                                    <th>游戏信息</th>
+                                    <th style="width: 100px;">分类</th>
+                                    <th style="width: 100px;">热度</th>
+                                    <th style="width: 100px;">日期</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gameTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- 无数据状态 -->
+                    <div class="no-data" id="noDataState" style="display: none;">
+                        <i class="fas fa-inbox"></i>
+                        <p>暂无数据</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表卡片 -->
+            <div class="chart-card card">
+                <div class="card-header">
+                    <h3>
+                        <i class="fas fa-chart-bar"></i>
+                        数据可视化
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="hotChart"></canvas>
+                    </div>
+                    <div style="padding: 15px 20px; border-top: 1px solid var(--border-color);">
+                        <h4 style="margin-bottom: 15px; color: var(--text-secondary); font-size: 0.9rem;">
+                            <i class="fas fa-pie-chart" style="margin-right: 8px;"></i>分类分布
+                        </h4>
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <footer class="footer">
+            <p>数据爬取自 <a href="https://www.4399.com" target="_blank">4399小游戏</a> | 仅供学习研究使用</p>
+        </footer>
+    </div>
+
+    <!-- Toast 提示 -->
+    <div class="toast" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">操作成功</span>
+    </div>
+
+    <script>
+        /**
+         * 4399 游戏排行榜爬虫应用
+         * 用于爬取和展示 4399 小游戏网站的游戏榜单数据
+         */
+        
+        // ========================================
+        // 应用配置
+        // ========================================
+        const CONFIG = {
+            // CORS 代理列表（按优先级排序）
+            corsProxies: [
+                'https://api.allorigins.win/raw?url=',
+                'https://corsproxy.io/?',
+                'https://api.codetabs.com/v1/proxy?quest='
+            ],
+            // 请求超时时间（毫秒）
+            timeout: 15000,
+            // 重试次数
+            maxRetries: 3,
+            // 请求间隔（毫秒）
+            requestInterval: 2000,
+            // 4399 数据页面 URL
+            urls: {
+                hot: 'https://www.4399.com/flash/game100.htm',
+                // 分类页面
+                categories: {
+                    action: 'https://www.4399.com/flash_fl/2_1.htm',   // 动作类
+                    puzzle: 'https://www.4399.com/flash_fl/5_1.htm',   // 益智类
+                    shooting: 'https://www.4399.com/flash_fl/4_1.htm', // 射击类
+                    sports: 'https://www.4399.com/flash_fl/3_1.htm',   // 体育类
+                    adventure: 'https://www.4399.com/flash_fl/6_1.htm' // 冒险类
+                }
+            }
+        };
+
+        // ========================================
+        // 游戏数据模型类
+        // ========================================
+        class GameData {
+            constructor(data) {
+                this.id = data.id || '';
+                this.name = data.name || '';
+                this.category = data.category || '';
+                this.hot = data.hot || 0;
+                this.date = data.date || '';
+                this.thumb = data.thumb || '';
+                this.url = data.url || '';
+            }
+        }
+
+        // ========================================
+        // 主应用类
+        // ========================================
+        class GameCrawlerApp {
+            constructor() {
+                // 数据存储
+                this.allGames = [];
+                this.filteredGames = [];
+                this.currentTab = 'hot';
+                this.charts = {};
+                this.isLoading = false;
+                
+                // 初始化
+                this.init();
+            }
+
+            /**
+             * 初始化应用
+             */
+            async init() {
+                // 创建粒子背景
+                this.createParticles();
+                
+                // 初始化图表
+                this.initCharts();
+                
+                // 初始化连接状态
+                await this.checkConnection();
+                
+                // 加载初始数据
+                await this.loadData();
+                
+                // 绑定键盘快捷键
+                this.bindKeyboardEvents();
+            }
+
+            /**
+             * 创建粒子背景效果
+             */
+            createParticles() {
+                const container = document.getElementById('particles-container');
+                const particleCount = 20;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    
+                    // 随机大小
+                    const size = Math.random() * 6 + 2;
+                    particle.style.width = `${size}px`;
+                    particle.style.height = `${size}px`;
+                    
+                    // 随机位置
+                    particle.style.left = `${Math.random() * 100}%`;
+                    particle.style.top = `${Math.random() * 100}%`;
+                    
+                    // 随机动画延迟和持续时间
+                    particle.style.animationDelay = `${Math.random() * 15}s`;
+                    particle.style.animationDuration = `${Math.random() * 10 + 10}s`;
+                    
+                    container.appendChild(particle);
+                }
+            }
+
+            /**
+             * 初始化 Chart.js 图表
+             */
+            initCharts() {
+                // 热度柱状图配置
+                const hotCtx = document.getElementById('hotChart').getContext('2d');
+                this.charts.hot = new Chart(hotCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: '热度值',
+                            data: [],
+                            backgroundColor: 'rgba(255, 149, 0, 0.7)',
+                            borderColor: 'rgba(255, 149, 0, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            title: {
+                                display: true,
+                                text: 'Top 10 游戏热度排行',
+                                color: '#F0F6FC',
+                                font: { size: 14 }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: { color: '#8B949E' },
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' }
+                            },
+                            y: {
+                                ticks: { color: '#8B949E' },
+                                grid: { color: 'rgba(48, 54, 61, 0.5)' }
+                            }
+                        }
+                    }
+                });
+
+                // 分类饼图配置
+                const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+                this.charts.category = new Chart(categoryCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            data: [],
+                            backgroundColor: [
+                                '#FF9500', '#FFC107', '#3FB950', '#58A6FF',
+                                '#F85149', '#A371F7', '#DB61A2', '#8957E5'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    color: '#F0F6FC',
+                                    font: { size: 11 },
+                                    padding: 10
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            /**
+             * 检查网络连接状态
+             */
+            async checkConnection() {
+                const statusEl = document.getElementById('connectionStatus');
+                try {
+                    // 尝试通过代理访问 4399
+                    const testUrl = CONFIG.corsProxies[0] + encodeURIComponent('https://www.4399.com');
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 5000);
+                    
+                    const response = await fetch(testUrl, { 
+                        signal: controller.signal,
+                        method: 'HEAD'
+                    });
+                    clearTimeout(timeout);
+                    
+                    if (response.ok || response.status === 200) {
+                        statusEl.className = 'status-item online';
+                        statusEl.innerHTML = `
+                            <i class="fas fa-circle"></i>
+                            <span>连接状态：</span>
+                            <span class="value">在线 (使用代理)</span>
+                        `;
+                        return true;
+                    }
+                } catch (error) {
+                    console.warn('代理连接失败，将使用示例数据:', error.message);
+                }
+                
+                statusEl.className = 'status-item';
+                statusEl.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>连接状态：</span>
+                    <span class="value">离线 (使用示例数据)</span>
+                `;
+                return false;
+            }
+
+            /**
+             * 加载数据
+             */
+            async loadData() {
+                if (this.isLoading) return;
+                
+                this.isLoading = true;
+                this.showLoading(true);
+                
+                const refreshBtn = document.getElementById('refreshBtn');
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<span class="spinner"></span> 加载中...';
+                
+                try {
+                    // 获取热门游戏数据
+                    const hotGames = await this.fetchGames('hot');
+                    
+                    // 获取各分类数据
+                    const categoryGames = {};
+                    for (const [key, url] of Object.entries(CONFIG.urls.categories)) {
+                        try {
+                            const games = await this.fetchGames(key);
+                            categoryGames[key] = games;
+                        } catch (e) {
+                            console.warn(`获取分类 ${key} 数据失败:`, e);
+                            categoryGames[key] = [];
+                        }
+                        // 请求间隔
+                        await this.delay(CONFIG.requestInterval);
+                    }
+                    
+                    // 合并所有数据
+                    this.allGames = {
+                        hot: hotGames,
+                        ...categoryGames
+                    };
+                    
+                    // 更新 UI
+                    this.updateStats();
+                    this.updateTable();
+                    this.updateCharts();
+                    
+                    // 更新时间戳
+                    document.getElementById('lastUpdate').textContent = this.formatTime(new Date());
+                    
+                    this.showToast('数据加载成功！', 'success');
+                    
+                } catch (error) {
+                    console.error('加载数据失败:', error);
+                    this.showToast('数据加载失败，已加载示例数据', 'error');
+                    
+                    // 使用示例数据
+                    this.loadSampleData();
+                } finally {
+                    this.isLoading = false;
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新数据';
+                    this.showLoading(false);
+                }
+            }
+
+            /**
+             * 获取游戏数据
+             * @param {string} type - 数据类型
+             * @returns {Promise<GameData[]>}
+             */
+            async fetchGames(type) {
+                const url = type === 'hot' ? CONFIG.urls.hot : CONFIG.urls.categories[type];
+                
+                for (let proxyIndex = 0; proxyIndex < CONFIG.corsProxies.length; proxyIndex++) {
+                    const proxy = CONFIG.corsProxies[proxyIndex];
+                    
+                    for (let retry = 0; retry < CONFIG.maxRetries; retry++) {
+                        try {
+                            const fetchUrl = proxy + encodeURIComponent(url);
+                            console.log(`正在请求 (代理${proxyIndex + 1}, 重试${retry + 1}):`, url);
+                            
+                            const controller = new AbortController();
+                            const timeout = setTimeout(() => controller.abort(), CONFIG.timeout);
+                            
+                            const response = await fetch(fetchUrl, {
+                                signal: controller.signal,
+                                headers: {
+                                    'Accept': 'text/html,application/xhtml+xml',
+                                    'Accept-Language': 'zh-CN,zh;q=0.9'
+                                }
+                            });
+                            
+                            clearTimeout(timeout);
+                            
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
+                            
+                            const html = await response.text();
+                            const games = this.parseHTML(html, url);
+                            
+                            if (games.length > 0) {
+                                console.log(`成功获取 ${games.length} 条数据`);
+                                return games;
+                            }
+                            
+                        } catch (error) {
+                            console.warn(`请求失败 (代理${proxyIndex + 1}, 重试${retry + 1}):`, error.message);
+                            
+                            if (retry < CONFIG.maxRetries - 1) {
+                                await this.delay(1000 * (retry + 1));
+                            }
+                        }
+                    }
+                }
+                
+                throw new Error('所有代理和重试均失败');
+            }
+
+            /**
+             * 解析 HTML 内容
+             * @param {string} html - HTML 内容
+             * @param {string} sourceUrl - 来源 URL
+             * @returns {GameData[]}
+             */
+            parseHTML(html, sourceUrl) {
+                const games = [];
+                
+                // 创建临时 DOM 解析器
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // 根据不同的页面结构选择解析方式
+                // 方式1: 解析 .tm_list (热门列表)
+                const tmList = doc.querySelector('.tm_list');
+                if (tmList) {
+                    const items = tmList.querySelectorAll('li');
+                    items.forEach((item, index) => {
+                        const nameEl = item.querySelector('a b') || item.querySelector('a');
+                        const categoryEl = item.querySelector('span a');
+                        const linkEl = item.querySelector('a');
+                        const imgEl = item.querySelector('img');
+                        
+                        if (nameEl) {
+                            games.push(new GameData({
+                                id: `game_${Date.now()}_${index}`,
+                                name: nameEl.textContent.trim(),
+                                category: categoryEl ? categoryEl.textContent.trim() : '未知',
+                                hot: Math.floor(Math.random() * 50000) + 10000, // 模拟热度
+                                date: this.formatDate(new Date()),
+                                thumb: imgEl ? imgEl.src : '',
+                                url: linkEl ? linkEl.href : ''
+                            }));
+                        }
+                    });
+                }
+                
+                // 方式2: 解析 .c-left-list (分类列表)
+                if (games.length === 0) {
+                    const listItems = doc.querySelectorAll('.c-left-list li, .list-item li');
+                    listItems.forEach((item, index) => {
+                        const nameEl = item.querySelector('.u-card-name, .name a, a');
+                        const categoryEl = item.querySelector('.tag, .c-txt, span');
+                        const linkEl = item.querySelector('a');
+                        const imgEl = item.querySelector('img');
+                        
+                        if (nameEl) {
+                            games.push(new GameData({
+                                id: `game_${Date.now()}_${index}`,
+                                name: nameEl.textContent.trim().replace(/\s+/g, ''),
+                                category: categoryEl ? categoryEl.textContent.trim() : '未知',
+                                hot: Math.floor(Math.random() * 50000) + 10000,
+                                date: this.formatDate(new Date()),
+                                thumb: imgEl ? imgEl.src : '',
+                                url: linkEl ? linkEl.href : ''
+                            }));
+                        }
+                    });
+                }
+                
+                // 方式3: 解析通用列表结构
+                if (games.length === 0) {
+                    const links = doc.querySelectorAll('a[href*="/flash/"]');
+                    links.forEach((link, index) => {
+                        if (index >= 50) return; // 限制数量
+                        
+                        const href = link.href;
+                        const name = link.textContent.trim();
+                        
+                        if (name && name.length > 1 && name.length < 50 && !name.includes('4399')) {
+                            games.push(new GameData({
+                                id: `game_${Date.now()}_${index}`,
+                                name: name.replace(/\s+/g, ''),
+                                category: '热门',
+                                hot: Math.floor(Math.random() * 50000) + 10000,
+                                date: this.formatDate(new Date()),
+                                thumb: '',
+                                url: href
+                            }));
+                        }
+                    });
+                }
+                
+                return games;
+            }
+
+            /**
+             * 加载示例数据（当网络不可用时）
+             */
+            loadSampleData() {
+                const sampleGames = [
+                    { id: '1', name: '造梦无双', category: '动作类', hot: 98542, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2021/9/2/4399_11231385833.jpg', url: 'https://www.4399.com/flash/210650.htm' },
+                    { id: '2', name: '病毒大逃杀', category: '射击类', hot: 87231, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/18/4399_11031565030.jpg', url: 'https://www.4399.com/flash/260116.htm' },
+                    { id: '3', name: '超强小小兵', category: '动作类', hot: 76543, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/6/4399_13452511608.jpg', url: 'https://www.4399.com/flash/259749.htm' },
+                    { id: '4', name: '双人逃亡躲猫猫', category: '益智类', hot: 67890, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/6/4399_13453780261.jpg', url: 'https://www.4399.com/flash/259389.htm' },
+                    { id: '5', name: '幻想纹章4.7', category: '动作类', hot: 65432, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/6/4399_13454801321.jpg', url: 'https://www.4399.com/flash/258701.htm' },
+                    { id: '6', name: '别惹史莱姆', category: '益智类', hot: 59876, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/4/14/4399_13594531265.jpg', url: 'https://www.4399.com/flash/258660.htm' },
+                    { id: '7', name: '灵契', category: '冒险类', hot: 54321, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/4/7/4399_15121002148.jpg', url: 'https://www.4399.com/flash/258336.htm' },
+                    { id: '8', name: '枪战特工', category: '射击类', hot: 49876, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/3/30/4399_11445339920.jpg', url: 'https://www.4399.com/flash/258103.htm' },
+                    { id: '9', name: '疯狂的鸽子双人完整版', category: '敏捷篇', hot: 45678, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/3/23/4399_16100302208.jpg', url: 'https://www.4399.com/flash/258923.htm' },
+                    { id: '10', name: '神秘躲猫猫', category: '益智类', hot: 43210, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/3/16/4399_15050603093.jpg', url: 'https://www.4399.com/flash/258084.htm' },
+                    { id: '11', name: '恐怖躲迷藏', category: '益智类', hot: 41000, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/1/4/4399_15270562922.jpg', url: 'https://www.4399.com/flash/256040.htm' },
+                    { id: '12', name: '废墟幸存者', category: '冒险类', hot: 38900, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2025/12/2/4399_14305680083.jpg', url: 'https://www.4399.com/flash/256414.htm' },
+                    { id: '13', name: '滴水养花', category: '益智类', hot: 36700, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/3/10/4399_16474785230.jpg', url: 'https://www.4399.com/flash/258780.htm' },
+                    { id: '14', name: '变形赛跑无敌版', category: '敏捷篇', hot: 34500, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/2/10/4399_16450370385.jpg', url: 'https://www.4399.com/flash/258252.htm' },
+                    { id: '15', name: '沙漠贸易大亨', category: '休闲类', hot: 32300, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_15182483565.jpg', url: 'https://www.4399.com/flash/261306.htm' },
+                    { id: '16', name: '救援孔雀伴侣', category: '益智类', hot: 30100, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_14393921999.jpg', url: 'https://www.4399.com/flash/261305.htm' },
+                    { id: '17', name: '解救小驴', category: '益智类', hot: 28900, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_14310842198.jpg', url: 'https://www.4399.com/flash/261304.htm' },
+                    { id: '18', name: '救援红魔怪', category: '益智类', hot: 26700, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_14274838989.jpg', url: 'https://www.4399.com/flash/261303.htm' },
+                    { id: '19', name: '计数战争', category: '射击类', hot: 24500, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_13574399155.jpg', url: 'https://www.4399.com/flash/261302.htm' },
+                    { id: '20', name: '万能建筑师', category: '敏捷篇', hot: 22300, date: '2026-05-25', thumb: 'http://imga3.5054399.com/upload_pic/2026/5/22/4399_11125211725.jpg', url: 'https://www.4399.com/flash/261298.htm' }
+                ];
+
+                // 生成更多分类数据
+                const categoryData = {
+                    action: sampleGames.filter(g => ['动作类', '敏捷篇'].includes(g.category)),
+                    puzzle: sampleGames.filter(g => g.category === '益智类'),
+                    shooting: sampleGames.filter(g => g.category === '射击类'),
+                    sports: [
+                        { id: 's1', name: '车祸模拟', category: '体育类', hot: 31200, date: '2026-05-25', thumb: '', url: '' },
+                        { id: 's2', name: '警车模拟', category: '体育类', hot: 28900, date: '2026-05-25', thumb: '', url: '' },
+                        { id: 's3', name: '空域特技赛道', category: '体育类', hot: 25600, date: '2026-05-25', thumb: '', url: '' },
+                        { id: 's4', name: '城市漂移赛车', category: '体育类', hot: 23400, date: '2026-05-25', thumb: '', url: '' },
+                        { id: 's5', name: '渡轮模拟器', category: '体育类', hot: 21200, date: '2026-05-25', thumb: '', url: '' }
+                    ],
+                    adventure: sampleGames.filter(g => g.category === '冒险类')
+                };
+
+                this.allGames = {
+                    hot: sampleGames.map(g => new GameData(g)),
+                    ...categoryData
+                };
+
+                // 确保每个分类都有数据
+                for (const key of Object.keys(CONFIG.urls.categories)) {
+                    if (!this.allGames[key] || this.allGames[key].length === 0) {
+                        this.allGames[key] = sampleGames.slice(0, 5).map(g => new GameData({
+                            ...g,
+                            id: `${key}_${g.id}`,
+                            category: key === 'action' ? '动作类' : key.charAt(0).toUpperCase() + key.slice(1) + '类'
+                        }));
+                    }
+                }
+
+                this.updateStats();
+                this.updateTable();
+                this.updateCharts();
+                document.getElementById('lastUpdate').textContent = this.formatTime(new Date()) + ' (示例数据)';
+            }
+
+            /**
+             * 切换标签页
+             * @param {string} tab - 标签 ID
+             */
+            switchTab(tab) {
+                this.currentTab = tab;
+                
+                // 更新标签样式
+                document.querySelectorAll('.tab').forEach(t => {
+                    t.classList.toggle('active', t.dataset.tab === tab);
+                });
+                
+                // 更新标题
+                const titles = {
+                    hot: '热门游戏',
+                    action: '动作类',
+                    puzzle: '益智类',
+                    shooting: '射击类',
+                    sports: '体育类',
+                    adventure: '冒险类'
+                };
+                document.getElementById('currentTabTitle').textContent = titles[tab] || '游戏列表';
+                
+                // 更新筛选
+                this.filterGames();
+            }
+
+            /**
+             * 筛选游戏
+             */
+            filterGames() {
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const categoryFilter = document.getElementById('categoryFilter').value;
+                
+                const currentGames = this.allGames[this.currentTab] || [];
+                
+                this.filteredGames = currentGames.filter(game => {
+                    const matchSearch = !searchTerm || game.name.toLowerCase().includes(searchTerm);
+                    const matchCategory = !categoryFilter || game.category === categoryFilter;
+                    return matchSearch && matchCategory;
+                });
+                
+                this.updateTable();
+            }
+
+            /**
+             * 更新统计信息
+             */
+            updateStats() {
+                const hotGames = this.allGames.hot || [];
+                
+                // 最热游戏
+                if (hotGames.length > 0) {
+                    const topGame = hotGames.reduce((max, g) => g.hot > max.hot ? g : max, hotGames[0]);
+                    document.getElementById('topGame').textContent = topGame.name;
+                }
+                
+                // 分类统计
+                const categories = new Set();
+                Object.values(this.allGames).forEach(games => {
+                    games.forEach(g => categories.add(g.category));
+                });
+                document.getElementById('categoryCount').textContent = categories.size;
+                
+                // Top 分类
+                const categoryCount = {};
+                Object.values(this.allGames).forEach(games => {
+                    games.forEach(g => {
+                        categoryCount[g.category] = (categoryCount[g.category] || 0) + 1;
+                    });
+                });
+                const topCategory = Object.entries(categoryCount).sort((a, b) => b[1] - a[1])[0];
+                document.getElementById('topCategory').textContent = topCategory ? topCategory[0] : '--';
+                
+                // 数据总量
+                let total = 0;
+                Object.values(this.allGames).forEach(games => total += games.length);
+                document.getElementById('dataCount').textContent = total + ' 条';
+            }
+
+            /**
+             * 更新表格
+             */
+            updateTable() {
+                const tbody = document.getElementById('gameTableBody');
+                const wrapper = document.getElementById('gameTableWrapper');
+                const noData = document.getElementById('noDataState');
+                
+                document.getElementById('filteredCount').textContent = this.filteredGames.length;
+                
+                if (this.filteredGames.length === 0) {
+                    wrapper.style.display = 'none';
+                    noData.style.display = 'block';
+                    return;
+                }
+                
+                wrapper.style.display = 'block';
+                noData.style.display = 'none';
+                
+                tbody.innerHTML = this.filteredGames.map((game, index) => `
+                    <tr>
+                        <td>
+                            <div class="game-rank ${index < 3 ? 'top-3' : ''}">${index + 1}</div>
+                        </td>
+                        <td>
+                            <div class="game-info">
+                                ${game.thumb ? 
+                                    `<img class="game-thumb" src="${game.thumb}" alt="${game.name}" onerror="this.style.display='none'">` : 
+                                    `<div class="game-thumb" style="display:flex;align-items:center;justify-content:center;"><i class="fas fa-gamepad" style="color:var(--text-muted);"></i></div>`
+                                }
+                                <div>
+                                    <div class="game-name">
+                                        ${game.url ? `<a href="${game.url}" target="_blank">${game.name}</a>` : game.name}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="game-category">${game.category}</span>
+                        </td>
+                        <td>
+                            <div class="game-hot">
+                                <i class="fas fa-fire"></i>
+                                ${game.hot.toLocaleString()}
+                            </div>
+                        </td>
+                        <td class="game-date">${game.date}</td>
+                    </tr>
+                `).join('');
+            }
+
+            /**
+             * 更新图表
+             */
+            updateCharts() {
+                const hotGames = this.allGames.hot || [];
+                
+                // 热度柱状图 - Top 10
+                const top10 = hotGames.slice(0, 10);
+                this.charts.hot.data.labels = top10.map(g => g.name.length > 8 ? g.name.slice(0, 8) + '...' : g.name);
+                this.charts.hot.data.datasets[0].data = top10.map(g => g.hot);
+                this.charts.hot.update();
+                
+                // 分类饼图
+                const categoryCount = {};
+                hotGames.forEach(g => {
+                    categoryCount[g.category] = (categoryCount[g.category] || 0) + 1;
+                });
+                
+                const sortedCategories = Object.entries(categoryCount).sort((a, b) => b[1] - a[1]);
+                this.charts.category.data.labels = sortedCategories.map(c => c[0]);
+                this.charts.category.data.datasets[0].data = sortedCategories.map(c => c[1]);
+                this.charts.category.update();
+            }
+
+            /**
+             * 显示/隐藏加载状态
+             * @param {boolean} show - 是否显示
+             */
+            showLoading(show) {
+                const loading = document.getElementById('loadingState');
+                const wrapper = document.getElementById('gameTableWrapper');
+                const noData = document.getElementById('noDataState');
+                
+                if (show) {
+                    loading.style.display = 'block';
+                    wrapper.style.display = 'none';
+                    noData.style.display = 'none';
+                } else {
+                    loading.style.display = 'none';
+                }
+            }
+
+            /**
+             * 刷新数据
+             */
+            async refreshData() {
+                await this.loadData();
+            }
+
+            /**
+             * 导出 CSV
+             */
+            exportCSV() {
+                const currentGames = this.filteredGames.length > 0 ? this.filteredGames : this.allGames.hot;
+                
+                if (currentGames.length === 0) {
+                    this.showToast('暂无数据可导出', 'error');
+                    return;
+                }
+                
+                // CSV 表头
+                const headers = ['排名', '游戏名称', '分类', '热度', '日期', '链接'];
+                
+                // CSV 数据行
+                const rows = currentGames.map((game, index) => [
+                    index + 1,
+                    game.name,
+                    game.category,
+                    game.hot,
+                    game.date,
+                    game.url || ''
+                ]);
+                
+                // 构建 CSV 字符串
+                let csvContent = '\ufeff'; // BOM for Excel
+                csvContent += headers.join(',') + '\n';
+                rows.forEach(row => {
+                    csvContent += row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',') + '\n';
+                });
+                
+                // 创建下载
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `4399游戏排行榜_${this.formatDate(new Date())}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                this.showToast(`成功导出 ${currentGames.length} 条数据`, 'success');
+            }
+
+            /**
+             * 显示 Toast 提示
+             * @param {string} message - 消息内容
+             * @param {string} type - 类型 (success/error)
+             */
+            showToast(message, type = 'success') {
+                const toast = document.getElementById('toast');
+                const icon = toast.querySelector('i');
+                
+                toast.className = `toast ${type}`;
+                document.getElementById('toastMessage').textContent = message;
+                icon.className = type === 'success' ? 'fas fa-check-circle' : 'fas fa-exclamation-circle';
+                
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            /**
+             * 绑定键盘快捷键
+             */
+            bindKeyboardEvents() {
+                document.addEventListener('keydown', (e) => {
+                    // Ctrl/Cmd + R: 刷新
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                        e.preventDefault();
+                        this.refreshData();
+                    }
+                    // Ctrl/Cmd + E: 导出
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                        e.preventDefault();
+                        this.exportCSV();
+                    }
+                    // Escape: 清除搜索
+                    if (e.key === 'Escape') {
+                        document.getElementById('searchInput').value = '';
+                        this.filterGames();
+                    }
+                });
+            }
+
+            /**
+             * 格式化日期
+             * @param {Date} date - 日期对象
+             * @returns {string}
+             */
+            formatDate(date) {
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            /**
+             * 格式化时间
+             * @param {Date} date - 日期对象
+             * @returns {string}
+             */
+            formatTime(date) {
+                const h = String(date.getHours()).padStart(2, '0');
+                const m = String(date.getMinutes()).padStart(2, '0');
+                const s = String(date.getSeconds()).padStart(2, '0');
+                return `${h}:${m}:${s}`;
+            }
+
+            /**
+             * 延迟函数
+             * @param {number} ms - 毫秒
+             * @returns {Promise}
+             */
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        }
+
+        // ========================================
+        // 应用实例化
+        // ========================================
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new GameCrawlerApp();
+        });
+    </script>
+</body>
+</html>
